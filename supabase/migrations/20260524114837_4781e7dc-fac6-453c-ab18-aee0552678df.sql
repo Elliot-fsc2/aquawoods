@@ -1,0 +1,1 @@
+DELETE FROM crm_guests WHERE id LIKE 'G0%';
