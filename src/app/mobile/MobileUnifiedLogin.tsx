@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { Leaf, ArrowLeft, ArrowRight, Mail, Lock, Phone, User } from "lucide-react";
 
 type Mode = "login" | "register";
 
 export default function MobileUnifiedLogin() {
+  const navigate = useNavigate();
   const { login, loginGuest, registerGuest, property } = useApp();
   const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState("");
@@ -51,7 +52,7 @@ export default function MobileUnifiedLogin() {
     if (result.ok) {
       const redirect = sessionStorage.getItem("loginRedirect") || "/account";
       sessionStorage.removeItem("loginRedirect");
-      window.location.replace(redirect);
+      navigate(redirect, { replace: true });
     } else setError(result.error || "Registration failed");
   };
 

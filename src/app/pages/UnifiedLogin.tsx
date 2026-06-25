@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { Leaf, Lock, Mail, ArrowLeft, User, Phone, ArrowRight } from "lucide-react";
 
 type Mode = "login" | "register";
 
 export default function UnifiedLogin() {
+  const navigate = useNavigate();
   const { login, loginGuest, registerGuest, property } = useApp();
   const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState("");
@@ -48,7 +50,7 @@ export default function UnifiedLogin() {
     if (result.ok) {
       const redirect = sessionStorage.getItem("loginRedirect") || "/account";
       sessionStorage.removeItem("loginRedirect");
-      window.location.replace(redirect);
+      navigate(redirect, { replace: true });
     } else setError(result.error || "Registration failed");
   };
 
