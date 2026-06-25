@@ -133,16 +133,6 @@ export default function MobileUnifiedLogin() {
             >
               Sign In
             </button>
-            <div className="text-center text-xs text-brand-500 mt-4 space-y-1">
-              <div className="font-medium">Demo accounts</div>
-              <div className="font-mono bg-brand-100 px-2 py-1 rounded inline-block text-xs">
-                admin@aquawood.com / Aquawood2026! <span className="text-brand-400">Staff</span>
-              </div>
-              <br />
-              <div className="font-mono bg-brand-100 px-2 py-1 rounded inline-block text-xs">
-                maria@example.com / demo <span className="text-brand-400">Guest</span>
-              </div>
-            </div>
             <p className="text-center text-sm text-brand-600 pt-4">
               Don't have an account?{" "}
               <button

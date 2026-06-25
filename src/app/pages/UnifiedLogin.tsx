@@ -164,14 +164,6 @@ export default function UnifiedLogin() {
                   Sign In
                 </button>
               </form>
-              <div className="mt-6 pt-6 border-t border-brand-100 text-xs text-brand-600 space-y-2">
-                <p className="font-medium uppercase tracking-wider">Demo accounts</p>
-                <div className="font-mono bg-brand-50 rounded p-2 text-xs">
-                  admin@aquawood.com / Aquawood2026! <span className="text-brand-400">— Staff</span>
-                  <br />
-                  maria@example.com / demo <span className="text-brand-400">— Guest</span>
-                </div>
-              </div>
               <p className="text-center text-sm text-brand-600 mt-6">
                 Don't have an account?{" "}
                 <button
