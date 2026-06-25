@@ -1,24 +1,18 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "../context/AppContext";
-import { Leaf, User, ArrowLeft, ArrowRight, Mail, Lock, Phone, Shield } from "lucide-react";
+import { Leaf, ArrowLeft, ArrowRight, Mail, Lock, Phone, User } from "lucide-react";
 
-type Tab = "staff" | "guest-login" | "guest-register";
+type Mode = "login" | "register";
 
 export default function MobileUnifiedLogin() {
   const { login, loginGuest, registerGuest, property } = useApp();
-  const [tab, setTab] = useState<Tab>("staff");
+  const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState("");
 
-  // Staff fields
-  const [staffEmail, setStaffEmail] = useState("");
-  const [staffPass, setStaffPass] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  // Guest login fields
-  const [guestEmail, setGuestEmail] = useState("maria@example.com");
-  const [guestPass, setGuestPass] = useState("demo");
-
-  // Guest register fields
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
@@ -26,21 +20,23 @@ export default function MobileUnifiedLogin() {
 
   const shortName = property.name.split(",")[0] || "Aquawood";
 
-  const handleStaffLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (await login(staffEmail, staffPass)) window.location.replace("/dashboard");
-    else setError("Invalid email or password.");
-  };
 
-  const handleGuestLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (await loginGuest(guestEmail, guestPass)) {
+    if (await login(email, password)) {
+      window.location.replace("/dashboard");
+      return;
+    }
+
+    if (await loginGuest(email, password)) {
       const redirect = sessionStorage.getItem("loginRedirect") || "/account";
       sessionStorage.removeItem("loginRedirect");
       window.location.replace(redirect);
-    } else setError("Invalid email or password. Try maria@example.com / demo");
+      return;
+    }
+
+    setError("Invalid email or password.");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -59,8 +55,6 @@ export default function MobileUnifiedLogin() {
     } else setError(result.error || "Registration failed");
   };
 
-  const isGuest = tab.startsWith("guest");
-
   return (
     <div className="min-h-screen bg-cream-50">
       <header className="bg-brand-900 px-4 py-4 flex items-center justify-between">
@@ -71,81 +65,25 @@ export default function MobileUnifiedLogin() {
           <div className="w-7 h-7 rounded-full bg-gold-500 flex items-center justify-center text-white">
             <Leaf className="w-3.5 h-3.5" />
           </div>
-          <span className="font-serif text-lg text-cream-50">
-            {isGuest ? shortName : `${shortName} HSMS`}
-          </span>
+          <span className="font-serif text-lg text-cream-50">{shortName}</span>
         </div>
         <div className="w-9" />
       </header>
 
       <div className="px-6 pt-8 pb-24">
         <div className="text-center mb-8">
-          <div
-            className={`w-16 h-16 rounded-full bg-gradient-to-br flex items-center justify-center text-white mx-auto mb-4 ${isGuest ? "from-gold-400 to-gold-600" : "from-brand-600 to-brand-800"}`}
-          >
-            {isGuest ? <User className="w-7 h-7" /> : <Shield className="w-7 h-7" />}
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center text-white mx-auto mb-4">
+            <User className="w-7 h-7" />
           </div>
           <h1 className="font-serif text-3xl text-brand-900 mb-2">
-            {tab === "staff"
-              ? "Staff Login"
-              : tab === "guest-login"
-                ? "Welcome Back"
-                : "Create Account"}
+            {mode === "login" ? "Sign in" : "Create account"}
           </h1>
           <p className="text-sm text-brand-600">
-            {tab === "staff"
-              ? "Sign in to access the operations console."
-              : tab === "guest-login"
-                ? "Sign in to manage your bookings and earn rewards."
-                : "Start earning loyalty points with your first stay."}
+            {mode === "login"
+              ? "Staff and guests use the same sign-in."
+              : "Get 200 welcome loyalty points when you join."}
           </p>
         </div>
-
-        {/* Role tabs */}
-        <div className="flex bg-brand-100 rounded-xl p-1 mb-6">
-          <button
-            onClick={() => {
-              setTab("staff");
-              setError("");
-            }}
-            className={`flex-1 py-3 rounded-lg text-sm font-medium transition ${tab === "staff" ? "bg-brand-800 text-cream-50 shadow" : "text-brand-700"}`}
-          >
-            Staff
-          </button>
-          <button
-            onClick={() => {
-              setTab("guest-login");
-              setError("");
-            }}
-            className={`flex-1 py-3 rounded-lg text-sm font-medium transition ${tab.startsWith("guest") ? "bg-brand-800 text-cream-50 shadow" : "text-brand-700"}`}
-          >
-            Guest
-          </button>
-        </div>
-
-        {/* Guest sub-tabs */}
-        {isGuest && (
-          <div className="flex bg-brand-100 rounded-xl p-1 mb-6">
-            <button
-              onClick={() => {
-                setTab("guest-login");
-                setError("");
-              }}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition ${tab === "guest-login" ? "bg-brand-800 text-cream-50 shadow" : "text-brand-700"}`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => {
-                setTab("guest-register");
-                setError("");
-              }}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition ${tab === "guest-register" ? "bg-brand-800 text-cream-50 shadow" : "text-brand-700"}`}
-            >
-              Register
-            </button>
-          </div>
-        )}
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
@@ -153,9 +91,8 @@ export default function MobileUnifiedLogin() {
           </div>
         )}
 
-        {/* Staff form */}
-        {tab === "staff" && (
-          <form action="/dashboard" onSubmit={handleStaffLogin} autoComplete="on" className="space-y-4">
+        {mode === "login" ? (
+          <form action="/" onSubmit={handleLogin} autoComplete="on" className="space-y-4">
             <div>
               <label className="text-xs uppercase tracking-wider text-brand-700 font-medium block mb-1">
                 Email
@@ -167,8 +104,8 @@ export default function MobileUnifiedLogin() {
                   required
                   name="email"
                   autoComplete="username"
-                  value={staffEmail}
-                  onChange={(e) => setStaffEmail(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3.5 border border-brand-200 rounded-xl focus:outline-none focus:border-brand-500 bg-white text-base"
                 />
               </div>
@@ -184,8 +121,8 @@ export default function MobileUnifiedLogin() {
                   required
                   name="password"
                   autoComplete="current-password"
-                  value={staffPass}
-                  onChange={(e) => setStaffPass(e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-3.5 border border-brand-200 rounded-xl focus:outline-none focus:border-brand-500 bg-white text-base"
                 />
               </div>
@@ -196,55 +133,28 @@ export default function MobileUnifiedLogin() {
             >
               Sign In
             </button>
+            <div className="text-center text-xs text-brand-500 mt-4 space-y-1">
+              <div className="font-medium">Demo accounts</div>
+              <div className="font-mono bg-brand-100 px-2 py-1 rounded inline-block text-xs">
+                admin@aquawood.com / Aquawood2026! <span className="text-brand-400">Staff</span>
+              </div>
+              <br />
+              <div className="font-mono bg-brand-100 px-2 py-1 rounded inline-block text-xs">
+                maria@example.com / demo <span className="text-brand-400">Guest</span>
+              </div>
+            </div>
+            <p className="text-center text-sm text-brand-600 pt-4">
+              Don't have an account?{" "}
+              <button
+                onClick={() => { setMode("register"); setError(""); }}
+                className="text-gold-600 hover:text-gold-700 font-medium underline"
+              >
+                Create one
+              </button>
+            </p>
           </form>
-        )}
-
-        {/* Guest login form */}
-        {tab === "guest-login" && (
-          <form action="/account" onSubmit={handleGuestLogin} autoComplete="on" className="space-y-4">
-            <div>
-              <label className="text-xs uppercase tracking-wider text-brand-700 font-medium block mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                name="email"
-                autoComplete="username"
-                value={guestEmail}
-                onChange={(e) => setGuestEmail(e.target.value)}
-                className="w-full px-4 py-3.5 border border-brand-200 rounded-xl focus:outline-none focus:border-brand-500 bg-white text-base"
-              />
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-brand-700 font-medium block mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                name="password"
-                autoComplete="current-password"
-                value={guestPass}
-                onChange={(e) => setGuestPass(e.target.value)}
-                className="w-full px-4 py-3.5 border border-brand-200 rounded-xl focus:outline-none focus:border-brand-500 bg-white text-base"
-              />
-            </div>
-            <button className="w-full py-4 bg-brand-800 text-cream-50 rounded-xl font-medium text-base flex items-center justify-center gap-2">
-              Sign In <ArrowRight className="w-4 h-4" />
-            </button>
-            <div className="text-center text-xs text-brand-500 mt-4">
-              Demo:{" "}
-              <span className="font-mono bg-brand-100 px-1.5 py-0.5 rounded">
-                maria@example.com / demo
-              </span>
-            </div>
-          </form>
-        )}
-
-        {/* Guest registration form */}
-        {tab === "guest-register" && (
-          <form action="/account" onSubmit={handleRegister} autoComplete="on" className="space-y-4">
+        ) : (
+          <form action="/" onSubmit={handleRegister} autoComplete="on" className="space-y-4">
             <div>
               <label className="text-xs uppercase tracking-wider text-brand-700 font-medium block mb-1">
                 Full Name
@@ -307,6 +217,15 @@ export default function MobileUnifiedLogin() {
             </button>
             <p className="text-xs text-brand-600 text-center">
               You'll receive 200 welcome loyalty points.
+            </p>
+            <p className="text-center text-sm text-brand-600 pt-4">
+              Already have an account?{" "}
+              <button
+                onClick={() => { setMode("login"); setError(""); }}
+                className="text-gold-600 hover:text-gold-700 font-medium underline"
+              >
+                Sign in
+              </button>
             </p>
           </form>
         )}

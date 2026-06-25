@@ -1,44 +1,39 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { useApp } from "../context/AppContext";
-import { Leaf, Lock, Mail, ArrowLeft, Shield, User, Phone, ArrowRight } from "lucide-react";
+import { Leaf, Lock, Mail, ArrowLeft, User, Phone, ArrowRight } from "lucide-react";
 
-type Tab = "staff" | "guest-login" | "guest-register";
+type Mode = "login" | "register";
 
 export default function UnifiedLogin() {
   const { login, loginGuest, registerGuest, property } = useApp();
-  const [tab, setTab] = useState<Tab>("staff");
+  const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState("");
 
-  // Staff fields
-  const [staffEmail, setStaffEmail] = useState("");
-  const [staffPass, setStaffPass] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  // Guest login fields
-  const [guestEmail, setGuestEmail] = useState("maria@example.com");
-  const [guestPass, setGuestPass] = useState("demo");
-
-  // Guest register fields
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regPass, setRegPass] = useState("");
 
-  const handleStaffLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (await login(staffEmail, staffPass)) window.location.replace("/dashboard");
-    else setError("Invalid email or password.");
-  };
 
-  const handleGuestLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (await loginGuest(guestEmail, guestPass)) {
+    if (await login(email, password)) {
+      window.location.replace("/dashboard");
+      return;
+    }
+
+    if (await loginGuest(email, password)) {
       const redirect = sessionStorage.getItem("loginRedirect") || "/account";
       sessionStorage.removeItem("loginRedirect");
       window.location.replace(redirect);
-    } else setError("Invalid email or password. Try maria@example.com / demo");
+      return;
+    }
+
+    setError("Invalid email or password.");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -57,11 +52,8 @@ export default function UnifiedLogin() {
     } else setError(result.error || "Registration failed");
   };
 
-  const isGuest = tab.startsWith("guest");
-
   return (
     <div className="min-h-screen grid md:grid-cols-2">
-      {/* LEFT — branding panel */}
       <div className="relative hidden md:flex items-center justify-center overflow-hidden bg-brand-900 text-cream-50 p-12">
         <div
           className="absolute inset-0 opacity-30 bg-cover bg-center"
@@ -87,59 +79,31 @@ export default function UnifiedLogin() {
             <div>
               <div className="font-serif text-2xl">{property.name.split(",")[0] || "Aquawood"}</div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-gold-400">
-                {isGuest ? "Guest Portal" : "HSMS Console"}
+                Guest & Staff Portal
               </div>
             </div>
           </div>
-          {isGuest ? (
-            <>
-              <h1 className="font-serif text-5xl mb-6 leading-tight">Your Aquawood account</h1>
-              <p className="text-cream-100/80 mb-8 leading-relaxed">
-                Manage bookings, order food to your room, request services, earn loyalty rewards,
-                and check in faster with your own guest account.
-              </p>
-              <div className="space-y-3 text-sm text-cream-100/70">
-                {[
-                  "Book rooms & add extras online",
-                  "Track bookings & view receipts",
-                  "Order food directly to your room",
-                  "Request housekeeping & maintenance",
-                  "Earn loyalty points & member discounts",
-                ].map((f) => (
-                  <div key={f} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-gold-400 rounded-full" /> {f}
-                  </div>
-                ))}
+          <h1 className="font-serif text-5xl mb-6 leading-tight">
+            Welcome to {property.name.split(",")[0] || "Aquawood"}
+          </h1>
+          <p className="text-cream-100/80 mb-8 leading-relaxed">
+            Sign in to manage bookings, access the operations console, or create a guest account.
+          </p>
+          <div className="space-y-3 text-sm text-cream-100/70">
+            {[
+              "Book rooms & order room service",
+              "Track bookings & loyalty rewards",
+              "Front desk & revenue management",
+              "Multi-channel distribution sync",
+            ].map((f) => (
+              <div key={f} className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-gold-400 rounded-full" /> {f}
               </div>
-            </>
-          ) : (
-            <>
-              <h1 className="font-serif text-5xl mb-6 leading-tight">
-                Hospitality Sales Management System
-              </h1>
-              <p className="text-cream-100/80 mb-8 leading-relaxed">
-                The unified command center for Aquawood Garden Resort — front desk, revenue
-                management, channel distribution, MICE sales, CRM, and executive reporting in one
-                platform.
-              </p>
-              <div className="space-y-3 text-sm text-cream-100/70">
-                {[
-                  "Real-time inventory & folio management",
-                  "Dynamic pricing & revenue forecasting",
-                  "Multi-channel distribution sync",
-                  "Guest CRM & loyalty analytics",
-                ].map((f) => (
-                  <div key={f} className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-gold-400" /> {f}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* RIGHT — form panel */}
       <div className="flex items-center justify-center p-8 bg-cream-50">
         <div className="w-full max-w-md">
           <a
@@ -149,58 +113,13 @@ export default function UnifiedLogin() {
             <ArrowLeft className="w-4 h-4" /> Back to resort website
           </a>
 
-          {/* Main tabs */}
-          <div className="flex border-b border-brand-200 mb-8">
-            <button
-              onClick={() => {
-                setTab("staff");
-                setError("");
-              }}
-              className={`flex-1 pb-3 text-sm font-medium transition ${tab === "staff" ? "text-brand-900 border-b-2 border-gold-500" : "text-brand-500"}`}
-            >
-              Staff Console
-            </button>
-            <button
-              onClick={() => {
-                setTab("guest-login");
-                setError("");
-              }}
-              className={`flex-1 pb-3 text-sm font-medium transition ${tab.startsWith("guest") ? "text-brand-900 border-b-2 border-gold-500" : "text-brand-500"}`}
-            >
-              Guest Portal
-            </button>
-          </div>
-
-          {/* Guest sub-tabs */}
-          {isGuest && (
-            <div className="flex gap-4 mb-6">
-              <button
-                onClick={() => {
-                  setTab("guest-login");
-                  setError("");
-                }}
-                className={`text-sm font-medium transition ${tab === "guest-login" ? "text-gold-600" : "text-brand-500 hover:text-brand-700"}`}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => {
-                  setTab("guest-register");
-                  setError("");
-                }}
-                className={`text-sm font-medium transition ${tab === "guest-register" ? "text-gold-600" : "text-brand-500 hover:text-brand-700"}`}
-              >
-                Create Account
-              </button>
-            </div>
-          )}
-
-          {/* Staff login form */}
-          {tab === "staff" && (
+          {mode === "login" ? (
             <>
-              <h2 className="font-serif text-4xl text-brand-900 mb-2">Welcome back</h2>
-              <p className="text-brand-700 mb-6">Sign in to access the operations console.</p>
-              <form action="/dashboard" onSubmit={handleStaffLogin} autoComplete="on" className="space-y-4">
+              <h2 className="font-serif text-4xl text-brand-900 mb-2">Sign in</h2>
+              <p className="text-brand-700 mb-6">
+                Staff and guests use the same sign-in.
+              </p>
+              <form action="/" onSubmit={handleLogin} autoComplete="on" className="space-y-4">
                 <div>
                   <label className="text-xs uppercase tracking-wider text-brand-700 font-medium">
                     Email
@@ -212,8 +131,8 @@ export default function UnifiedLogin() {
                       required
                       name="email"
                       autoComplete="username"
-                      value={staffEmail}
-                      onChange={(e) => setStaffEmail(e.target.value)}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border border-brand-200 rounded-md focus:outline-none focus:border-brand-500 bg-white"
                     />
                   </div>
@@ -229,8 +148,8 @@ export default function UnifiedLogin() {
                       required
                       name="password"
                       autoComplete="current-password"
-                      value={staffPass}
-                      onChange={(e) => setStaffPass(e.target.value)}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border border-brand-200 rounded-md focus:outline-none focus:border-brand-500 bg-white"
                     />
                   </div>
@@ -245,71 +164,31 @@ export default function UnifiedLogin() {
                   Sign In
                 </button>
               </form>
-            </>
-          )}
-
-          {/* Guest login form */}
-          {tab === "guest-login" && (
-            <>
-              <h2 className="font-serif text-3xl text-brand-900 mb-2">Welcome back</h2>
-              <p className="text-brand-700 text-sm mb-6">Sign in to manage your bookings.</p>
-              <form action="/account" onSubmit={handleGuestLogin} autoComplete="on" className="space-y-4">
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-brand-700 font-medium">
-                    Email
-                  </label>
-                  <div className="relative mt-1">
-                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-400" />
-                    <input
-                      type="email"
-                      required
-                      name="email"
-                      autoComplete="username"
-                      value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border border-brand-200 rounded-md focus:outline-none focus:border-brand-500 bg-white"
-                    />
-                  </div>
+              <div className="mt-6 pt-6 border-t border-brand-100 text-xs text-brand-600 space-y-2">
+                <p className="font-medium uppercase tracking-wider">Demo accounts</p>
+                <div className="font-mono bg-brand-50 rounded p-2 text-xs">
+                  admin@aquawood.com / Aquawood2026! <span className="text-brand-400">— Staff</span>
+                  <br />
+                  maria@example.com / demo <span className="text-brand-400">— Guest</span>
                 </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-brand-700 font-medium">
-                    Password
-                  </label>
-                  <div className="relative mt-1">
-                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-400" />
-                    <input
-                      type="password"
-                      required
-                      name="password"
-                      autoComplete="current-password"
-                      value={guestPass}
-                      onChange={(e) => setGuestPass(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border border-brand-200 rounded-md focus:outline-none focus:border-brand-500 bg-white"
-                    />
-                  </div>
-                </div>
-                {error && (
-                  <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">{error}</div>
-                )}
-                <button className="w-full py-3 bg-brand-800 text-cream-50 rounded-md hover:bg-brand-900 transition font-medium flex items-center justify-center gap-2">
-                  Sign In <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
-              <div className="mt-6 pt-6 border-t border-brand-100 text-xs text-brand-600">
-                <div className="mb-2 font-medium uppercase tracking-wider">Demo Account</div>
-                <div className="font-mono bg-brand-50 rounded p-2">maria@example.com / demo</div>
               </div>
-            </>
-          )}
-
-          {/* Guest registration form */}
-          {tab === "guest-register" && (
-            <>
-              <h2 className="font-serif text-3xl text-brand-900 mb-2">Create your account</h2>
-              <p className="text-brand-700 text-sm mb-6">
-                Start earning loyalty points with your first stay.
+              <p className="text-center text-sm text-brand-600 mt-6">
+                Don't have an account?{" "}
+                <button
+                  onClick={() => { setMode("register"); setError(""); }}
+                  className="text-gold-600 hover:text-gold-700 font-medium underline"
+                >
+                  Create one
+                </button>
               </p>
-              <form action="/account" onSubmit={handleRegister} autoComplete="on" className="space-y-4">
+            </>
+          ) : (
+            <>
+              <h2 className="font-serif text-4xl text-brand-900 mb-2">Create account</h2>
+              <p className="text-brand-700 mb-6">
+                Get 200 welcome loyalty points when you join.
+              </p>
+              <form action="/" onSubmit={handleRegister} autoComplete="on" className="space-y-4">
                 <div>
                   <label className="text-xs uppercase tracking-wider text-brand-700 font-medium">
                     Full Name
@@ -389,6 +268,15 @@ export default function UnifiedLogin() {
                   By creating an account, you'll receive 200 welcome loyalty points.
                 </p>
               </form>
+              <p className="text-center text-sm text-brand-600 mt-6">
+                Already have an account?{" "}
+                <button
+                  onClick={() => { setMode("login"); setError(""); }}
+                  className="text-gold-600 hover:text-gold-700 font-medium underline"
+                >
+                  Sign in
+                </button>
+              </p>
             </>
           )}
         </div>
