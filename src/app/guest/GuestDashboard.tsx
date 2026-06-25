@@ -29,7 +29,7 @@ export default function GuestDashboard() {
   const [rcDetails, setRcDetails] = useState("");
   const [rcEscalate, setRcEscalate] = useState(false);
 
-  const myBookings = guestBookings.filter((b) => b.guestUserId === guestUser?.id);
+  const myBookings = guestBookings;
   const myFood = guestFoodOrders.filter((o) => o.guestUserId === guestUser?.id);
   const myRequests = guestRequests.filter((r) => r.guestUserId === guestUser?.id);
 

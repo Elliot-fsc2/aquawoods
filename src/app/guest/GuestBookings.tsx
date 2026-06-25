@@ -35,7 +35,7 @@ export default function GuestBookings() {
   const [editing, setEditing] = useState<GuestBooking | null>(null);
   const [receipt, setReceipt] = useState<GuestBooking | null>(null);
 
-  const myBookings = guestBookings.filter((b) => b.guestUserId === guestUser?.id);
+  const myBookings = guestBookings;
 
   // New booking state
   const [selectedRoom, setSelectedRoom] = useState<(typeof rooms)[0] | null>(null);

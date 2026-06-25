@@ -75,6 +75,26 @@ const emergencyFromRow = (r: EmergencyRow): EmergencyAlert => ({
   acknowledged: r.acknowledged, createdAt: new Date(r.created_at).toLocaleString(),
 });
 
+// guest_bookings
+type GuestBookingRow = {
+  id: string; guest_user_id: string; room_type: string; room_number: string | null;
+  check_in: string; check_out: string; adults: number; children: number; nights: number;
+  room_rate: number; addons: unknown; subtotal: number; tax: number; total: number;
+  status: string; payment_status: string; special_requests: string | null; created_at: string;
+};
+const guestBookingFromRow = (r: GuestBookingRow): GuestBooking => ({
+  id: r.id, guestUserId: r.guest_user_id, roomType: r.room_type,
+  roomNumber: r.room_number ?? undefined,
+  checkIn: r.check_in, checkOut: r.check_out, adults: r.adults, children: r.children,
+  nights: r.nights, roomRate: Number(r.room_rate),
+  addons: (r.addons as BookingAddon[]) ?? [],
+  subtotal: Number(r.subtotal), tax: Number(r.tax), total: Number(r.total),
+  status: r.status as GuestBooking["status"],
+  paymentStatus: r.payment_status as GuestBooking["paymentStatus"],
+  specialRequests: r.special_requests ?? "",
+  createdAt: new Date(r.created_at).toLocaleString(),
+});
+
 // crm_guests
 type CrmGuestRow = {
   id: string; name: string; email: string | null; phone: string | null; country: string | null;
@@ -372,7 +392,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const info = STAFF_INFO[email];
       const role: "admin" | "employee" | null =
         dbRole === "admin" || dbRole === "employee" ? dbRole : info?.role ?? null;
-      if (!role) return;
+      if (!role) {
+        // Not staff — try guest fallback (auth session may lack "guest" metadata)
+        const { data: gData } = await supabase.from("guest_users").select("*").eq("email", email).maybeSingle();
+        if (gData) {
+          const r = gData as Record<string, unknown>;
+          setGuestUser({
+            id: r.id as string, name: r.name as string, email: r.email as string,
+            phone: (r.phone as string) ?? "", password: r.password as string,
+            loyaltyTier: (r.loyalty_tier as GuestUser["loyaltyTier"]) ?? "Bronze",
+            points: (r.points as number) ?? 0, joinedAt: (r.joined_at as string) ?? "",
+            avatar: r.avatar_url as string | null ?? null,
+          });
+        }
+        return;
+      }
       setUser({
         id: authUser.id, email,
         name: profile?.full_name || info?.name || email,
@@ -489,6 +523,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     document.title = `${property.name} — Hospitality Sales Management`;
   }, [property.favicon, property.name]);
+
+  // Load guest bookings when guest user is authenticated
+  useEffect(() => {
+    if (!guestUser) { setGuestBookings([]); return; }
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      let authUserId: string | null = null;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        authUserId = authUser.id;
+      } else {
+        const { data: sessionData } = await supabase.auth.getSession();
+        authUserId = sessionData?.session?.user?.id ?? null;
+      }
+      if (!authUserId || cancelled) return;
+      const { data } = await supabase
+        .from("guest_bookings")
+        .select("*")
+        .eq("guest_user_id", authUserId)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (data) setGuestBookings(data.map((r) => guestBookingFromRow(r as GuestBookingRow)));
+
+      channel = supabase
+        .channel("guest-bookings")
+        .on("postgres_changes", { event: "*", schema: "public", table: "guest_bookings" }, (payload) => {
+          if (payload.eventType === "DELETE") {
+            setGuestBookings((bs) => bs.filter((b) => b.id !== (payload.old as GuestBookingRow).id));
+          } else {
+            const row = guestBookingFromRow(payload.new as GuestBookingRow);
+            setGuestBookings((bs) => {
+              const i = bs.findIndex((b) => b.id === row.id);
+              return i >= 0 ? bs.map((b, idx) => idx === i ? row : b) : [row, ...bs];
+            });
+          }
+        })
+        .subscribe();
+    })();
+
+    return () => { cancelled = true; if (channel) supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestUser?.id]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     const normalized = email.trim().toLowerCase();

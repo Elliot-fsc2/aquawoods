@@ -33,7 +33,7 @@ export default function GuestProfile() {
     reader.readAsDataURL(file);
   };
 
-  const myBookings = guestBookings.filter((b) => b.guestUserId === guestUser.id);
+  const myBookings = guestBookings;
   const myFood = guestFoodOrders.filter((o) => o.guestUserId === guestUser.id);
   const totalSpent = myBookings.filter((b) => b.status === "Checked-out" || b.status === "Checked-in").reduce((s, b) => s + b.total, 0)
     + myFood.reduce((s, o) => s + o.total, 0);
