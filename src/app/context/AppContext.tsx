@@ -289,7 +289,7 @@ interface Ctx {
   addEvent: (e: Event) => void;
   // Guest portal data
   guestBookings: GuestBooking[];
-  addGuestBooking: (b: GuestBooking) => void | Promise<void>;
+  addGuestBooking: (b: GuestBooking) => Promise<boolean>;
   updateGuestBooking: (id: string, patch: Partial<GuestBooking>) => void;
   cancelGuestBooking: (id: string) => void;
   guestFoodOrders: GuestFoodOrder[];
@@ -736,13 +736,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addEvent = (e: Event) => setEvents((es) => [e, ...es]);
 
   // Guest portal actions
-  const addGuestBooking = async (b: GuestBooking) => {
+  const addGuestBooking = async (b: GuestBooking): Promise<boolean> => {
     setGuestBookings((bs) => [b, ...bs.filter((x) => x.id !== b.id)]);
+    let authUserId: string | null = null;
     const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (!authUser) return; // demo guest accounts (not real auth) — keep local only
+    if (authUser) {
+      authUserId = authUser.id;
+    } else {
+      const { data: sessionData } = await supabase.auth.getSession();
+      authUserId = sessionData?.session?.user?.id ?? null;
+    }
+    if (!authUserId) {
+      console.warn("[addGuestBooking] no auth session — booking kept local only");
+      return false;
+    }
     const { error } = await supabase.from("guest_bookings").insert({
       id: b.id,
-      guest_user_id: authUser.id,
+      guest_user_id: authUserId,
       room_type: b.roomType,
       room_number: b.roomNumber ?? null,
       check_in: b.checkIn,
@@ -759,8 +769,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       payment_status: b.paymentStatus,
       special_requests: b.specialRequests || null,
     });
-    if (error) console.error("[guest_bookings.insert]", error);
+    if (error) {
+      console.error("[guest_bookings.insert] code=%s message=%s details=%s hint=%s", error.code, error.message, error.details, error.hint);
+      return false;
+    }
     // The DB trigger mirrors this into public.reservations so Front Desk sees it.
+    return true;
   };
   const updateGuestBooking = (id: string, patch: Partial<GuestBooking>) => {
     setGuestBookings((bs) => bs.map((b) => b.id === id ? { ...b, ...patch } : b));

@@ -26,7 +26,7 @@ BEGIN
   ) VALUES (
     NEW.id,
     COALESCE(v_guest_name, 'Online Guest'),
-    NEW.guest_user_id::text,
+    NULL, -- guest_id FK to crm_guests — set NULL for portal bookings
     NULL, -- staff will assign at front desk
     NEW.check_in, NEW.check_out,
     NEW.room_type, NEW.total, 0,
@@ -91,7 +91,7 @@ INSERT INTO public.reservations (
 SELECT
   gb.id,
   COALESCE(p.full_name, p.email, 'Online Guest'),
-  gb.guest_user_id::text,
+  NULL::text, -- guest_id FK to crm_guests — set NULL for portal bookings
   NULL,
   gb.check_in, gb.check_out,
   gb.room_type, gb.total, 0,

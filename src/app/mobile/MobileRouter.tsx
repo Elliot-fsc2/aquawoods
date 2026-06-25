@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import MobileGuestPortal from "./MobileGuestPortal";
 import MobileStaffPortal from "./MobileStaffPortal";
@@ -24,9 +24,14 @@ import Settings from "../dashboard/Settings";
 
 function GuestGuard({ children }: { children: React.ReactNode }) {
   const { guestUser, user, hydrating } = useApp();
+  const location = useLocation();
   if (hydrating) return <div className="flex min-h-screen items-center justify-center"><div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (user) return <Navigate to="/dashboard" replace />;
-  return guestUser ? <>{children}</> : <Navigate to="/guest-login" replace />;
+  if (!guestUser) {
+    sessionStorage.setItem("loginRedirect", location.pathname);
+    return <Navigate to="/guest-login" replace />;
+  }
+  return <>{children}</>;
 }
 
 function StaffGuard({ children }: { children: React.ReactNode }) {

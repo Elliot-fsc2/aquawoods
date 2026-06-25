@@ -1,18 +1,18 @@
-import { useState } from "react";
-import { useApp, type BookingAddon, type AddonId, type GuestBooking } from "../context/AppContext";
+import { useState, useMemo } from "react";
+import { useApp, type BookingAddon, type AddonId, type GuestBooking, type Reservation } from "../context/AppContext";
 import { useToast } from "../components/ToastProvider";
 import {
   Plus, Calendar, Users, Bed, Coffee, Plane, Clock, Sparkles, MapPin,
   Baby, PartyPopper, Check, X, AlertCircle, Receipt, Pencil,
 } from "lucide-react";
 
-// Room types available for booking
-const BOOKABLE_ROOMS = [
-  { type: "Standard Room", rate: 2800, capacity: 2, image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80", amenities: ["Air-con", "Cable TV", "WiFi"] },
-  { type: "Deluxe Garden", rate: 4500, capacity: 3, image: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80", amenities: ["Garden View", "Mini Fridge", "Hot Shower"] },
-  { type: "Family Villa", rate: 6800, capacity: 5, image: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80", amenities: ["Kitchenette", "2 Bedrooms", "Living Area"] },
-  { type: "Lagoon Suite", rate: 7800, capacity: 3, image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80", amenities: ["Pool View", "Bathtub", "Balcony"] },
-];
+// Fallback images per room type
+const TYPE_IMAGES: Record<string, string> = {
+  "Standard Room": "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80",
+  "Deluxe Garden": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80",
+  "Family Villa": "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80",
+  "Lagoon Suite": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+};
 
 // Available addons
 const ADDONS: { id: AddonId; name: string; price: number; icon: React.ReactNode; description: string }[] = [
@@ -29,7 +29,7 @@ const ADDONS: { id: AddonId; name: string; price: number; icon: React.ReactNode;
 const TAX_RATE = 0.07;
 
 export default function GuestBookings() {
-  const { guestUser, guestBookings, addGuestBooking, cancelGuestBooking, property } = useApp();
+  const { guestUser, guestBookings, rooms, reservations, addGuestBooking, cancelGuestBooking, property } = useApp();
   const { addToast } = useToast();
   const [view, setView] = useState<"list" | "new" | "addons">("list");
   const [editing, setEditing] = useState<GuestBooking | null>(null);
@@ -38,7 +38,7 @@ export default function GuestBookings() {
   const myBookings = guestBookings.filter((b) => b.guestUserId === guestUser?.id);
 
   // New booking state
-  const [selectedRoom, setSelectedRoom] = useState<typeof BOOKABLE_ROOMS[0] | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<(typeof rooms)[0] | null>(null);
   const [checkIn, setCheckIn] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [checkOut, setCheckOut] = useState(() => new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
   const [adults, setAdults] = useState(2);
@@ -47,7 +47,43 @@ export default function GuestBookings() {
   const [bookingAddons, setBookingAddons] = useState<BookingAddon[]>([]);
 
   const nights = Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
-  const roomTotal = (selectedRoom?.rate || 0) * nights;
+
+  const isRoomAvailable = (room: (typeof rooms)[0], ci: string, co: string) => {
+    if (room.status === "maintenance") return false;
+    if (room.status === "occupied") return false;
+    const activeStatuses: Reservation["status"][] = ["confirmed", "checked-in"];
+    const conflict = reservations.find(
+      (r) =>
+        r.roomId === room.id &&
+        activeStatuses.includes(r.status) &&
+        ci < r.checkOut &&
+        co > r.checkIn,
+    );
+    return !conflict;
+  };
+
+  const availableRooms = useMemo(
+    () => rooms.filter((r) => isRoomAvailable(r, checkIn, checkOut)),
+    [rooms, reservations, checkIn, checkOut],
+  );
+
+  // Group rooms by type/category, show availability per type
+  const roomTypes = useMemo(() => {
+    const map = new Map<string, { type: string; available: boolean; sample: (typeof rooms)[0] }>();
+    for (const room of rooms) {
+      if (!map.has(room.type)) {
+        const firstAvailable = availableRooms.find((r) => r.type === room.type);
+        map.set(room.type, {
+          type: room.type,
+          available: !!firstAvailable,
+          sample: firstAvailable ?? room,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [rooms, availableRooms]);
+
+  const roomTotal = (selectedRoom?.baseRate || 0) * nights;
   const addonTotal = bookingAddons.reduce((s, a) => s + a.price * a.quantity, 0);
   const subtotal = roomTotal + addonTotal;
   const tax = subtotal * TAX_RATE;
@@ -65,14 +101,15 @@ export default function GuestBookings() {
     setBookingAddons((current) => current.map((a) => a.id === id ? { ...a, quantity: Math.max(1, a.quantity + delta) } : a));
   };
 
-  const confirmBooking = () => {
+  const confirmBooking = async () => {
     if (!selectedRoom || !guestUser) return;
     const newBooking: GuestBooking = {
       id: `BK-${Math.floor(Math.random() * 900000) + 100000}`,
       guestUserId: guestUser.id,
       roomType: selectedRoom.type,
+      roomNumber: selectedRoom.number,
       checkIn, checkOut, adults, children, nights,
-      roomRate: selectedRoom.rate,
+      roomRate: selectedRoom.baseRate,
       addons: bookingAddons,
       subtotal, tax, total,
       status: "Confirmed",
@@ -80,12 +117,16 @@ export default function GuestBookings() {
       specialRequests,
       createdAt: new Date().toLocaleString(),
     };
-    addGuestBooking(newBooking);
+    const ok = await addGuestBooking(newBooking);
     setSelectedRoom(null);
     setBookingAddons([]);
     setSpecialRequests("");
     setView("list");
-    addToast("success", "Booking confirmed!", `${newBooking.id} — ₱${total.toLocaleString()} · ${newBooking.roomType}`);
+    if (ok) {
+      addToast("success", "Booking confirmed!", `${newBooking.id} — ₱${total.toLocaleString()} · ${newBooking.roomType}`);
+    } else {
+      addToast("error", "Booking saved locally", "Could not sync to server. Staff may not see it.");
+    }
   };
 
   return (
@@ -224,42 +265,68 @@ export default function GuestBookings() {
             <div className="mt-3 text-xs text-brand-600">{nights} {nights === 1 ? "night" : "nights"} · {adults + children} guests</div>
           </div>
 
-          {/* Rooms */}
+          {/* Room categories */}
           <div className="bg-white rounded-xl border border-brand-100 p-6">
-            <h3 className="font-serif text-xl text-brand-900 mb-4">Choose your room</h3>
+            <h3 className="font-serif text-xl text-brand-900 mb-1">Choose your room category</h3>
+            <p className="text-xs text-brand-600 mb-4">
+              {nights} {nights === 1 ? "night" : "nights"} · {adults + children} guests
+              {availableRooms.length > 0 && ` · ${availableRooms.length} room${availableRooms.length > 1 ? "s" : ""} available`}
+            </p>
             <div className="grid md:grid-cols-2 gap-4">
-              {BOOKABLE_ROOMS.map((r) => {
-                const isSelected = selectedRoom?.type === r.type;
-                const canFit = r.capacity >= adults + children;
+              {roomTypes.map(({ type, available, sample }) => {
+                const isSelected = selectedRoom?.type === type;
+                const canFit = sample.capacity >= adults + children;
                 return (
                   <button
-                    key={r.type}
-                    disabled={!canFit}
-                    onClick={() => setSelectedRoom(r)}
-                    className={`text-left bg-cream-50 rounded-lg overflow-hidden border-2 transition ${isSelected ? "border-brand-700 shadow-lg" : "border-transparent hover:border-brand-300"} ${!canFit ? "opacity-50 cursor-not-allowed" : ""}`}
+                    key={type}
+                    disabled={!available || !canFit}
+                    onClick={() => {
+                      if (available) {
+                        const room = availableRooms.find((r) => r.type === type) ?? sample;
+                        setSelectedRoom(room);
+                      }
+                    }}
+                    className={`text-left bg-cream-50 rounded-lg overflow-hidden border-2 transition relative
+                      ${isSelected ? "border-brand-700 shadow-lg" : "border-transparent hover:border-brand-300"}
+                      ${(!available || !canFit) ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
                     <div className="aspect-video relative">
-                      <img src={r.image} alt={r.type} className="w-full h-full object-cover" />
-                      {isSelected && (
+                      <img
+                        src={TYPE_IMAGES[type] || TYPE_IMAGES["Standard Room"]}
+                        alt={type}
+                        className="w-full h-full object-cover"
+                      />
+                      {!available && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <span className="text-white text-sm font-medium uppercase tracking-wider bg-rose-600 px-3 py-1 rounded-full">
+                            Unavailable
+                          </span>
+                        </div>
+                      )}
+                      {isSelected && available && (
                         <div className="absolute top-2 right-2 bg-emerald-600 text-white rounded-full w-7 h-7 flex items-center justify-center">
                           <Check className="w-4 h-4" />
                         </div>
                       )}
-                      {!canFit && (
+                      {!canFit && available && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-sm">Not enough capacity</div>
                       )}
                     </div>
                     <div className="p-4">
                       <div className="flex items-baseline justify-between mb-2">
-                        <div className="font-serif text-xl text-brand-900">{r.type}</div>
+                        <div className="font-serif text-xl text-brand-900">{type}</div>
                         <div className="text-right">
-                          <div className="font-serif text-lg text-brand-900">₱{r.rate.toLocaleString()}</div>
+                          <div className="font-serif text-lg text-brand-900">₱{sample.baseRate.toLocaleString()}</div>
                           <div className="text-[10px] text-brand-500">per night</div>
                         </div>
                       </div>
-                      <div className="text-xs text-brand-600 mb-2 flex items-center gap-1"><Users className="w-3 h-3" /> Up to {r.capacity} guests</div>
+                      <div className="text-xs text-brand-600 mb-2 flex items-center gap-1">
+                        <Users className="w-3 h-3" /> Up to {sample.capacity} guests
+                      </div>
                       <div className="flex flex-wrap gap-1">
-                        {r.amenities.map((a) => <span key={a} className="text-[10px] px-2 py-0.5 bg-white text-brand-700 rounded-full">{a}</span>)}
+                        {(sample.amenities as string[]).slice(0, 4).map((a) => (
+                          <span key={a} className="text-[10px] px-2 py-0.5 bg-white text-brand-700 rounded-full">{a}</span>
+                        ))}
                       </div>
                     </div>
                   </button>
@@ -354,7 +421,7 @@ export default function GuestBookings() {
 
             <div className="py-3 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-brand-700">Room ({nights} nights × ₱{selectedRoom.rate})</span>
+                <span className="text-brand-700">Room ({nights} nights × ₱{selectedRoom.baseRate})</span>
                 <span className="text-brand-900">₱{roomTotal.toLocaleString()}</span>
               </div>
               {bookingAddons.length > 0 && (
