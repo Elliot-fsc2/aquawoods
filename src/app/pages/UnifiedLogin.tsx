@@ -24,14 +24,14 @@ export default function UnifiedLogin() {
     setError("");
 
     if (await login(email, password)) {
-      window.location.replace("/dashboard");
+      navigate("/dashboard", { replace: true });
       return;
     }
 
     if (await loginGuest(email, password)) {
       const redirect = sessionStorage.getItem("loginRedirect") || "/account";
       sessionStorage.removeItem("loginRedirect");
-      window.location.replace(redirect);
+      navigate(redirect, { replace: true });
       return;
     }
 

@@ -13,7 +13,14 @@ function Root() {
 
 export default function AppShell() {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const saved = sessionStorage.getItem("spaRedirect");
+    if (saved) {
+      sessionStorage.removeItem("spaRedirect");
+      window.history.replaceState(null, "", saved);
+    }
+    setMounted(true);
+  }, []);
   if (!mounted) return <div className="flex min-h-screen items-center justify-center"><div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>;
   return (
     <AppProvider>
